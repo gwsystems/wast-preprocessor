@@ -1,6 +1,9 @@
-// fn main() {
-//     println!("Hello, world!");
-// }
+// Convert .wast file to .wat
+//      .wast file must first become .wasm file, the binary version
+//      Use the following command to convert to .wasm file
+//          wat2wasm [relative path to .wast] ==> wat2wasm src/add_test.wast 
+//      Use the following command to run the parser program on the .wasm file
+//          cargo run [relative path to .wasm] ==> cargo run add_test.wasm 
 
 use anyhow::Result;
 use std::env;
@@ -31,6 +34,8 @@ fn main() -> Result<()> {
                     println!("  Import {}::{}", import.module, import.field.unwrap());
                 }
             }
+            // FunctionSection
+            // result (not found in the parser)
             _other => {
                 // println!("found payload {:?}", _other);
             }
