@@ -8,6 +8,7 @@
 use anyhow::Result;
 use std::env;
 use wasmparser::{Parser, Payload};
+// use wasmparser::FunctionSectionReader;
 
 fn main() -> Result<()> {
     let args = env::args().collect::<Vec<_>>();
@@ -35,6 +36,22 @@ fn main() -> Result<()> {
                 }
             }
             // FunctionSection
+            Payload::FunctionSection(s) => {
+                /* 
+                let mut function_reader = FunctionSectionReader::new(s, 0).unwrap();
+                for _ in 0..function_reader.get_count() {
+                    let ty = function_reader.read().expect("function type index");
+                    println!("  Function {}", ty);
+                }
+                */
+                let mut ty = s.read().expect("");
+                /*
+                cannot borrow `s` as mutable, as it is not declared as mutable
+
+                cannot borrow as mutable
+                */
+                println!("  Function read {}", ty);
+            }
             // result (not found in the parser)
             _other => {
                 // println!("found payload {:?}", _other);
