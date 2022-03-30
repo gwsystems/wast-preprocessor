@@ -22,6 +22,13 @@ fn main() -> Result<()> {
     let buf = ParseBuffer::new(wat)?;
     let module = parser::parse::<Wat>(&buf)?;
 
+//     Error: extra tokens remaining after parse
+//     --> <anon>:6:1
+//      |
+//    6 | (assert_return (invoke "add" (i32.const 1) (i32.const 1)) (i32.const 2))
+//      | ^
+
+
     // println!("buf: {}", module);
 
     // store the document values as a vector (buf) for the parser
