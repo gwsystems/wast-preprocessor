@@ -893,6 +893,7 @@ dependencies = [
  "anyhow",
  "wasm-tools",
  "wasmparser",
+ "wast",
 ]
 
 [[package]]
