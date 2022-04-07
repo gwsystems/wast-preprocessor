@@ -1,5 +1,5 @@
 // use anyhow::Result;
-use wast::{ WastDirective};
+use wast::{WastDirective};
 use wast::parser::{self, ParseBuffer, Result};
 
 
@@ -23,12 +23,7 @@ fn main() -> Result<()> {
         // println!("{:?}", i);
         match i {
             WastDirective::AssertReturn{span, exec, results} => {
-                println!("Assert");
-                println!("  {:?}", span);
-                println!("  {:?}", exec);
-                println!("  {:?}", results);
-                println!();
-                println!();
+                println!("Assert\n  {:?}\n  {:?}\n  {:?}", span, exec, results);
             },
             WastDirective::Module(m) => {
                 println!("Module");
@@ -55,9 +50,15 @@ fn extract_module(text: &Vec<wast::ModuleField>) {
     for t in text.iter() {
         match t {
             wast::ModuleField::Func(field) => {
-                println!("  Function Exports: {:?}", field.exports);
-                println!("  Function Kind: {:?}", field.kind);
-                println!("  Function type: {:?}", field.ty);
+                let s = &field.ty.inline;                // unable to reach params (Box or Option)
+                // print!("(func ${:?} (param $a {:?}\n",field.exports.names[0], s);
+                println!("  Function Exports: {:?}\n  Function Kind: {:?}\n  Function type: {:?}", field.exports, field.kind, field.ty);
+                match &field.kind {
+                    wast::FuncKind::Inline {locals, expression} => {
+                        println!("{:?}",expression.instrs[0]);      // instrs cannot be indexed; how to determine what variant it is w/o match (500+)
+                    }
+                    _ => {}
+                }
             },
             _ => {}
         }
