@@ -23,51 +23,71 @@ fn main() -> Result<()> {
     let ast = parser::parse::<wast::Wast>(&buf)?;
 
     for directive in ast.directives {
-        if let wast::WastDirective::Module(mut _mod) = directive {
-            if let ModuleKind::Text(txt) = &_mod.kind {
-                for field in txt {
-                    if let ModuleField::Func(_func) = field {
-                        let return_type = _func.ty.inline.clone().unwrap().results[0];
-                        let c_return_type = match return_type {
-                            ValType::I32 => "int",
-                            ValType::I64 => "long int",
-                            ValType::F32 => "float",
-                            ValType::F64 => "double",
-                            _ => panic!("AHHHH!"),
-                        };
-                        let p = _func.ty.inline.clone().unwrap();
-                        println!("p: {:?}", p.params.len());
-                        let mut c_param: Vec<String> = Vec::new();
-                        for (_, _, p) in _func.ty.inline.clone().unwrap().params.iter() {
-                            match p {
-                                ValType::I32 => c_param.push("int".to_string()),
-                                ValType::I64 => c_param.push("long int".to_string()),
-                                ValType::F32 => c_param.push("float".to_string()),
-                                ValType::F64 => c_param.push("double".to_string()),
+        match directive {
+            wast::WastDirective::Module(mut _mod) => {
+                if let ModuleKind::Text(txt) = &_mod.kind {
+                    for field in txt {
+                        if let ModuleField::Func(_func) = field {
+                            let return_type = _func.ty.inline.clone().unwrap().results[0];
+                            let c_return_type = match return_type {
+                                ValType::I32 => "int",
+                                ValType::I64 => "long int",
+                                ValType::F32 => "float",
+                                ValType::F64 => "double",
                                 _ => panic!("AHHHH!"),
                             };
-                        }
-
-                        print!(
-                            "IMPORT {} wasmf_{}({}",
-                            c_return_type, _func.exports.names[0], c_param[0]
-                        );
-                        if c_param.len() > 1 {
-                            for n in 1..c_param.len() {
-                                print!(
-                                    ", {}",
-                                    c_param[n]
-                                );
+                            let mut c_param: Vec<String> = Vec::new();
+                            for (_, _, p) in _func.ty.inline.clone().unwrap().params.iter() {
+                                match p {
+                                    ValType::I32 => c_param.push("int".to_string()),
+                                    ValType::I64 => c_param.push("long int".to_string()),
+                                    ValType::F32 => c_param.push("float".to_string()),
+                                    ValType::F64 => c_param.push("double".to_string()),
+                                    _ => panic!("AHHHH!"),
+                                };
                             }
+    
+                            print!(
+                                "IMPORT {} wasmf_{}({}",
+                                c_return_type, _func.exports.names[0], c_param[0]
+                            );
+                            if c_param.len() > 1 {
+                                for n in 1..c_param.len() {
+                                    print!(
+                                        ", {}",
+                                        c_param[n]
+                                    );
+                                }
+                            }
+                            println!(");");
                         }
-                        println!(");");
                     }
+                    // And generate wasm module
+                    let path: &Path = Path::new("test.wasm");
+                    fs::write(path, _mod.encode().unwrap()).unwrap();
                 }
-            }
+            },
 
-            // And generate wasm module
-            let path: &Path = Path::new("test.wasm");
-            fs::write(path, _mod.encode().unwrap()).unwrap();
+            wast::WastDirective::AssertReturn{span: _, exec, results} => {
+                // println!("{:?}{:?}{:?}", span, exec, results);
+                println!("\nint main(int argc, char* argv[]) {{");
+                // println!("{:#?}", exec);
+                match exec {
+                    wast::WastExecute::Invoke(invoke) =>{
+                        print!("\tawsm_assert(wasmf_{}(", invoke.name);
+                        for p in invoke.args.iter() {
+                            print!("{:?}",p.instrs[0]);
+                        }
+                        println!(" = {:?});", results[0]);
+                    },
+                    _ => {}
+                }
+
+                println!("}}");
+            },
+
+            _ => {}
+
         }
     }
 
