@@ -891,6 +891,7 @@ name = "wast_parse"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cc",
  "wasm-tools",
  "wast",
 ]

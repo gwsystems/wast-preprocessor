@@ -1,4 +1,3 @@
-// use anyhow::Result;
 use anyhow::Result;
 use wast::parser::{self, ParseBuffer};
 use wast::ModuleField;
@@ -6,20 +5,22 @@ use wast::ModuleKind;
 use wast::ValType;
 
 use std::fs;
+use std::env;
+use std::io::Read;
 use std::path::Path;
 
 fn main() -> Result<()> {
+    let args: Vec<String> = env::args().collect();
+    if args.len() != 2 {
+        println!("Usage: {} in.wasm", args[0]);
+        return Ok(());
+    }
 
-    let wat = r#"
-        (module
-            (func (export "add") (param $a i32) (param $b i32) (result i32)
-                (i32.add (local.get $a) (local.get $b))
-            )
-        )
-        (assert_return (invoke "add" (i32.const 1) (i32.const 1)) (i32.const 2))
-    "#;
+    let mut f = fs::File::open(&args[1])?;
+    let mut contents = String::new();
+    f.read_to_string(&mut contents)?;
 
-    let buf = ParseBuffer::new(wat)?;
+    let buf = ParseBuffer::new(&contents)?;
     let ast = parser::parse::<wast::Wast>(&buf)?;
 
     for directive in ast.directives {
