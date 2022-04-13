@@ -69,16 +69,30 @@ fn main() -> Result<()> {
             },
 
             wast::WastDirective::AssertReturn{span: _, exec, results} => {
-                // println!("{:?}{:?}{:?}", span, exec, results);
                 println!("\nint main(int argc, char* argv[]) {{");
-                // println!("{:#?}", exec);
                 match exec {
                     wast::WastExecute::Invoke(invoke) =>{
                         print!("\tawsm_assert(wasmf_{}(", invoke.name);
+                        let mut ct = 0;
+                        // obtain arguments
                         for p in invoke.args.iter() {
-                            print!("{:?}",p.instrs[0]);
+                            match p.instrs[0] {
+                                wast::Instruction::I32Const(val) => {
+                                    if ct > 0 {print!(", ");}
+                                    print!("{:?}", val);
+                                    ct = ct+1;
+                                },
+                                _ => {print!("OTHER");}
+                            }
                         }
-                        println!(" = {:?});", results[0]);
+                        // obtain results
+                        print!(") == ");
+                        match results[0] {
+                            wast::AssertExpression::I32(val) => {
+                                println!("{:?});", val);
+                            }
+                            _ => {print!("OTHER");}
+                        }
                     },
                     _ => {}
                 }
@@ -93,61 +107,3 @@ fn main() -> Result<()> {
 
     Ok(())
 }
-
-    // let vec = module.directives;
-
-    // for i in vec.iter() {
-    //     // println!("{:?}", i);
-    //     match i {
-    //         WastDirective::AssertReturn{span: _, exec, results: _} => {
-    //             // println!("Assert\n  {:?}\n  {:?}\n  {:?}", span, exec, results);
-    //             // let assert = wat.to_string().substring(span.offset, wat.len());
-    //             // let new_assert = exec.invoke[0];
-    //             match exec {
-    //                 wast::WastExecute::Invoke(invoke) =>{
-    //                     println!("{:?}", invoke.span.offset);
-    //                 },
-    //                 _ => {}
-    //             }
-    //         },
-    //         WastDirective::Module(m) => {
-    //             println!("Module");
-    //             let content = &m.kind;
-    //             match content {
-    //                 wast::ModuleKind::Text(t) => {
-    //                     extract_module(t);  // helper function
-    //                 },
-    //                 _ => {}
-    //             }
-    //         }
-    //         _ => {}
-    //     }
-    // }
-
-    // Ok(())
-
-
-//  Helper Function to remove the function contents from the 
-//      passed in module. Span, ID, and Name do not contain
-//      helpful data in the case of the sample program.
-
-// fn extract_module(text: &Vec<wast::ModuleField>) {
-//     for t in text.iter() {
-//         match t {
-//             wast::ModuleField::Func(field) => {
-//                 let _s = &field.ty.inline;                // unable to reach params (Box or Option)
-//                 // print!("(func ${:?} (param $a {:?}\n",field.exports.names[0], s);
-//                 println!("  Function Exports: {:?}\n  Function Kind: {:?}\n  Function type: {:?}", field.exports, field.kind, field.ty);
-//                 match &field.kind {
-//                     wast::FuncKind::Inline {locals: _, expression} => {
-//                         println!("{:?}",expression.instrs[0]);      // instrs cannot be indexed; how to determine what variant it is w/o match (500+)
-//                     }
-//                     _ => {}
-//                 }
-//             },
-//             _ => {}
-//         }
-//     }
-
-// }
-
