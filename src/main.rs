@@ -35,7 +35,7 @@ fn main() -> Result<()> {
                             let return_type = _func.ty.inline.clone().unwrap().results[0];
                             let c_return_type = match return_type {
                                 ValType::I32 => "int",
-                                ValType::I64 => "long int",
+                                ValType::I64 => "long",
                                 ValType::F32 => "float",
                                 ValType::F64 => "double",
                                 _ => panic!("AHHHH!"),
@@ -44,7 +44,7 @@ fn main() -> Result<()> {
                             for (_, _, p) in _func.ty.inline.clone().unwrap().params.iter() {
                                 match p {
                                     ValType::I32 => c_param.push("int".to_string()),
-                                    ValType::I64 => c_param.push("long int".to_string()),
+                                    ValType::I64 => c_param.push("long".to_string()),
                                     ValType::F32 => c_param.push("float".to_string()),
                                     ValType::F64 => c_param.push("double".to_string()),
                                     _ => panic!("AHHHH!"),
@@ -116,8 +116,8 @@ fn main() -> Result<()> {
                                 println!("{:?});", val);
                             }
                             _ => {
-                                write!(output, "OTHER RESULT")?;
-                                print!("OTHER RESULT");
+                                write!(output, "\"OTHER RESULT\");")?;
+                                print!("\"OTHER RESULT\");");
                             }
                         }
                     },
