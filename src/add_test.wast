@@ -4,4 +4,5 @@
 	)
 )
 
-;; (assert_return (invoke "add" (i32.const 1) (i32.const 1)) (i32.const 2))   
+;; assert_return blocks the wat2wasm command from running
+(assert_return (invoke "add" (i32.const 1) (i32.const 1)) (i32.const 2))   
