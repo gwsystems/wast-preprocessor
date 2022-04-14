@@ -6,7 +6,7 @@ use wast::ValType;
 
 use std::fs;
 use std::env;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::Path;
 
 fn main() -> Result<()> {
@@ -19,6 +19,9 @@ fn main() -> Result<()> {
     let mut f = fs::File::open(&args[1])?;
     let mut contents = String::new();
     f.read_to_string(&mut contents)?;
+
+    let path = "address_test.c";
+    let mut output = fs::File::create(path)?;
 
     let buf = ParseBuffer::new(&contents)?;
     let ast = parser::parse::<wast::Wast>(&buf)?;
@@ -48,18 +51,27 @@ fn main() -> Result<()> {
                                 };
                             }
     
+                            write!(output, 
+                                "IMPORT {} wasmf_{}({}",
+                                c_return_type, _func.exports.names[0], c_param[0]
+                            )?;
                             print!(
                                 "IMPORT {} wasmf_{}({}",
                                 c_return_type, _func.exports.names[0], c_param[0]
                             );
                             if c_param.len() > 1 {
                                 for n in 1..c_param.len() {
+                                    write!(output,
+                                        ", {}",
+                                        c_param[n]
+                                    )?;
                                     print!(
                                         ", {}",
                                         c_param[n]
                                     );
                                 }
                             }
+                            writeln!(output, ");")?;
                             println!(");");
                         }
                     }
@@ -70,38 +82,59 @@ fn main() -> Result<()> {
             },
 
             wast::WastDirective::AssertReturn{span: _, exec, results} => {
+                writeln!(output,"\nint main(int argc, char* argv[]) {{")?;
                 println!("\nint main(int argc, char* argv[]) {{");
                 match exec {
                     wast::WastExecute::Invoke(invoke) =>{
+                        write!(output, "\tawsm_assert(wasmf_{}(", invoke.name)?;
                         print!("\tawsm_assert(wasmf_{}(", invoke.name);
                         let mut ct = 0;
                         // obtain arguments
                         for p in invoke.args.iter() {
                             match p.instrs[0] {
                                 wast::Instruction::I32Const(val) => {
-                                    if ct > 0 {print!(", ");}
+                                    if ct > 0 {
+                                        write!(output, ", ")?;
+                                        print!(", ");
+                                    }
+                                    write!(output, "{:?}", val)?;
                                     print!("{:?}", val);
                                     ct = ct+1;
                                 },
-                                _ => {print!("OTHER");}
+                                _ => {
+                                    write!(output, "OTHER PARAM")?;
+                                    print!("OTHER PARAM");
+                                }
                             }
                         }
                         // obtain results
+                        write!(output, ") == ")?;
                         print!(") == ");
                         match results[0] {
                             wast::AssertExpression::I32(val) => {
+                                writeln!(output, "{:?});", val)?;
                                 println!("{:?});", val);
                             }
-                            _ => {print!("OTHER");}
+                            _ => {
+                                write!(output, "OTHER RESULT")?;
+                                print!("OTHER RESULT");
+                            }
                         }
                     },
                     _ => {}
                 }
-
+                writeln!(output, "}}")?;
                 println!("}}");
             },
 
-            _ => {}
+            wast::WastDirective::AssertTrap{span: _, exec, message} => {
+                // is assert trap written in the same format?
+                println!("Assert trap: {:?} and {:?}", exec, message);
+            },
+            _ => {
+                writeln!(output, "OTHER DIRECTIVE")?;
+                println!("OTHER DIRECTIVE");
+            }
 
         }
     }
