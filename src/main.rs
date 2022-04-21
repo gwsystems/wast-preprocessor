@@ -20,59 +20,85 @@ fn main() -> Result<()> {
     let mut contents = String::new();
     f.read_to_string(&mut contents)?;
 
-    let path = "address_test.c";
-    let mut output = fs::File::create(path)?;
+    let mut d_num = 0;
 
     let buf = ParseBuffer::new(&contents)?;
     let ast = parser::parse::<wast::Wast>(&buf)?;
 
+    let mut imports: Vec<String> = Vec::new();
+    let mut functions: Vec<String> = Vec::new();
+
     for directive in ast.directives {
         match directive {
             wast::WastDirective::Module(mut _mod) => {
+                // if document is empty, fill with current data, clear vectors
+                if !Path::new(&format!("address_test{}.c", d_num)).exists() {
+
+                    // create new file, set output
+                    let path = format!("address_test{}.c", d_num);
+                    let mut output = fs::File::create(path)?;
+                    d_num = d_num +1;
+
+                    // print output to file
+                    // imports
+                    for s in imports {
+                        writeln!(output, "{}", s).expect("import");
+                    }
+
+                    // main function
+                    writeln!(output,"\nint main(int argc, char* argv[]) {{")?;
+
+                    // function calls
+                    for f in functions { 
+                        writeln!(output, "{}", f).expect("function");
+                    }
+
+                    writeln!(output, "}}").expect("");
+
+                    // clear vectors
+                    imports = Vec::new();
+                    functions = Vec::new();
+
+                }
                 if let ModuleKind::Text(txt) = &_mod.kind {
                     for field in txt {
                         if let ModuleField::Func(_func) = field {
-                            let return_type = _func.ty.inline.clone().unwrap().results[0];
-                            let c_return_type = match return_type {
-                                ValType::I32 => "int",
-                                ValType::I64 => "long",
-                                ValType::F32 => "float",
-                                ValType::F64 => "double",
-                                _ => panic!("AHHHH!"),
-                            };
+                            let c_return_type;
+                            if _func.ty.inline.clone().unwrap().results.len() == 0 {
+                                c_return_type = "void";
+                            }
+                            else {
+                                let return_type = _func.ty.inline.clone().unwrap().results[0];
+                                c_return_type = match return_type {
+                                    ValType::I32 => "int",
+                                    ValType::I64 => "double",
+                                    ValType::F32 => "float",
+                                    ValType::F64 => "double",
+                                    _ => panic!("AHHHH!"),
+                                };
+                            }
+                            
                             let mut c_param: Vec<String> = Vec::new();
                             for (_, _, p) in _func.ty.inline.clone().unwrap().params.iter() {
                                 match p {
                                     ValType::I32 => c_param.push("int".to_string()),
-                                    ValType::I64 => c_param.push("long".to_string()),
+                                    ValType::I64 => c_param.push("double".to_string()),
                                     ValType::F32 => c_param.push("float".to_string()),
                                     ValType::F64 => c_param.push("double".to_string()),
                                     _ => panic!("AHHHH!"),
                                 };
                             }
     
-                            write!(output, 
-                                "IMPORT {} wasmf_{}({}",
-                                c_return_type, _func.exports.names[0], c_param[0]
-                            )?;
-                            print!(
-                                "IMPORT {} wasmf_{}({}",
-                                c_return_type, _func.exports.names[0], c_param[0]
-                            );
+                            let mut line = format!("extern {} wasmf_{}({}", c_return_type, _func.exports.names[0], c_param[0]);
                             if c_param.len() > 1 {
                                 for n in 1..c_param.len() {
-                                    write!(output,
-                                        ", {}",
-                                        c_param[n]
-                                    )?;
-                                    print!(
-                                        ", {}",
-                                        c_param[n]
-                                    );
+                                    let s = format!(", {}", c_param[n]);
+                                    line.push_str(&s);
                                 }
                             }
-                            writeln!(output, ");")?;
-                            println!(");");
+                            line.push_str(");");
+                            // Push statement onto vector
+                            imports.push(line.to_string());
                         }
                     }
                     // And generate wasm module
@@ -82,58 +108,68 @@ fn main() -> Result<()> {
             },
 
             wast::WastDirective::AssertReturn{span: _, exec, results} => {
-                writeln!(output,"\nint main(int argc, char* argv[]) {{")?;
-                println!("\nint main(int argc, char* argv[]) {{");
+                let mut line;
                 match exec {
-                    wast::WastExecute::Invoke(invoke) =>{
-                        write!(output, "\tawsm_assert(wasmf_{}(", invoke.name)?;
-                        print!("\tawsm_assert(wasmf_{}(", invoke.name);
+                    wast::WastExecute::Invoke(invoke) => {
+                        line = format!("\tawsm_assert(wasmf_{}(", invoke.name);
                         let mut ct = 0;
                         // obtain arguments
                         for p in invoke.args.iter() {
                             match p.instrs[0] {
                                 wast::Instruction::I32Const(val) => {
                                     if ct > 0 {
-                                        write!(output, ", ")?;
-                                        print!(", ");
+                                        line.push_str(", ");
                                     }
-                                    write!(output, "{:?}", val)?;
-                                    print!("{:?}", val);
+                                    let s = format!("{:?}", val);
+                                    line.push_str(&s);
                                     ct = ct+1;
                                 },
                                 _ => {
-                                    write!(output, "OTHER PARAM")?;
-                                    print!("OTHER PARAM");
+                                    line.push_str("OTHER PARAM");
                                 }
                             }
                         }
                         // obtain results
-                        write!(output, ") == ")?;
-                        print!(") == ");
-                        match results[0] {
+                        line.push_str(") == ");
+                        match &results[0] {
                             wast::AssertExpression::I32(val) => {
-                                writeln!(output, "{:?});", val)?;
-                                println!("{:?});", val);
-                            }
+                                let s = format!("{:?});", val);
+                                line.push_str(&s);
+                            },
+                            wast::AssertExpression::I64(val) => {
+                                let s = format!("{:?});", val);
+                                line.push_str(&s);
+                            },
+                            wast::AssertExpression::F32(val) => {
+                                match &val {
+                                    wast::NanPattern::Value(v) => {
+                                        let s = format!("(double){:?});", v.bits);
+                                        line.push_str(&s);
+                                    },
+                                    _ => {}
+                                }
+                            },
+                            wast::AssertExpression::F64(val) => {
+                                match &val {
+                                    wast::NanPattern::Value(v) => {
+                                        let s = format!("(double){:?});", v.bits);
+                                        line.push_str(&s);
+                                    },
+                                    _ => {}
+                                }
+                            },
                             _ => {
-                                write!(output, "\"OTHER RESULT\");")?;
-                                print!("\"OTHER RESULT\");");
+                                line.push_str("\"OTHER RESULT\");");
                             }
                         }
                     },
-                    _ => {}
+                    _ => {line = format!("// OTHER EXEC");}
                 }
-                writeln!(output, "}}")?;
-                println!("}}");
+                // Push statement onto vector
+                functions.push(line.to_string());
+                
             },
-
-            wast::WastDirective::AssertTrap{span: _, exec, message} => {
-                // is assert trap written in the same format?
-                println!("Assert trap: {:?} and {:?}", exec, message);
-            },
-            _ => {
-                writeln!(output, "OTHER DIRECTIVE")?;
-                println!("OTHER DIRECTIVE");
+            _ => { // skip the others
             }
 
         }
