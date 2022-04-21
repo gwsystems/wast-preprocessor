@@ -40,6 +40,7 @@ fn main() -> Result<()> {
                     d_num = d_num +1;
 
                     // print output to file
+                    writeln!(output, "#include <stdint.h>\n").expect("include statement");
                     // imports
                     for s in imports {
                         writeln!(output, "{}", s).expect("import");
@@ -71,7 +72,7 @@ fn main() -> Result<()> {
                                 let return_type = _func.ty.inline.clone().unwrap().results[0];
                                 c_return_type = match return_type {
                                     ValType::I32 => "int",
-                                    ValType::I64 => "double",
+                                    ValType::I64 => "int64_t",
                                     ValType::F32 => "float",
                                     ValType::F64 => "double",
                                     _ => panic!("AHHHH!"),
@@ -82,7 +83,7 @@ fn main() -> Result<()> {
                             for (_, _, p) in _func.ty.inline.clone().unwrap().params.iter() {
                                 match p {
                                     ValType::I32 => c_param.push("int".to_string()),
-                                    ValType::I64 => c_param.push("double".to_string()),
+                                    ValType::I64 => c_param.push("int64_t".to_string()),
                                     ValType::F32 => c_param.push("float".to_string()),
                                     ValType::F64 => c_param.push("double".to_string()),
                                     _ => panic!("AHHHH!"),
