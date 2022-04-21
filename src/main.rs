@@ -6,7 +6,7 @@ use wast::ValType;
 
 use std::fs;
 use std::env;
-use std::io::{Read, Write};
+use std::io::{Read, Write, Error};
 use std::path::Path;
 
 fn main() -> Result<()> {
@@ -31,35 +31,8 @@ fn main() -> Result<()> {
     for directive in ast.directives {
         match directive {
             wast::WastDirective::Module(mut _mod) => {
-                // if document is empty, fill with current data, clear vectors
-                if !Path::new(&format!("address_test{}.c", d_num)).exists() {
-
-                    // create new file, set output
-                    let path = format!("address_test{}.c", d_num);
-                    let mut output = fs::File::create(path)?;
-                    d_num = d_num +1;
-
-                    // print output to file
-                    writeln!(output, "#include <stdint.h>\n").expect("include statement");
-                    // imports
-                    for s in imports {
-                        writeln!(output, "{}", s).expect("import");
-                    }
-
-                    // main function
-                    writeln!(output,"\nint main(int argc, char* argv[]) {{")?;
-
-                    // function calls
-                    for f in functions { 
-                        writeln!(output, "{}", f).expect("function");
-                    }
-
-                    writeln!(output, "}}").expect("");
-
-                    // clear vectors
-                    imports = Vec::new();
-                    functions = Vec::new();
-
+                if !imports.is_empty() {
+                    d_num = write_to_file(d_num, imports, functions, args[1]);
                 }
                 if let ModuleKind::Text(txt) = &_mod.kind {
                     for field in txt {
@@ -103,7 +76,8 @@ fn main() -> Result<()> {
                         }
                     }
                     // And generate wasm module
-                    let path: &Path = Path::new("test.wasm");
+                    let name = format!("{}_{}.wasm", args[1], d_num);
+                    let path: &Path = Path::new(&name);
                     fs::write(path, _mod.encode().unwrap()).unwrap();
                 }
             },
@@ -144,7 +118,7 @@ fn main() -> Result<()> {
                             wast::AssertExpression::F32(val) => {
                                 match &val {
                                     wast::NanPattern::Value(v) => {
-                                        let s = format!("(double){:?});", v.bits);
+                                        let s = format!("(float){:?});", v.bits);
                                         line.push_str(&s);
                                     },
                                     _ => {}
@@ -176,5 +150,39 @@ fn main() -> Result<()> {
         }
     }
 
+    if !imports.is_empty() {
+        d_num = write_to_file(d_num, imports, functions, args[1]);
+    }
+
     Ok(())
+}
+
+fn write_to_file(d_num: i32, imports: Vec<String>, functions: Vec<String>, file: String) -> i32 {
+    // create new file, set output
+    let path = format!("{}_{}.c", file, d_num);
+    let mut output = fs::File::create(path);
+    d_num = d_num +1;
+
+    // print output to file
+    writeln!(output, "#include <stdint.h>\n#include runtime.h").expect("include statement");
+    // imports
+    for s in imports {
+        writeln!(output, "{}", s).expect("import");
+    }
+
+    // main function
+    writeln!(output,"\nint main(int argc, char* argv[]) {{");
+
+    // function calls
+    for f in functions { 
+        writeln!(output, "{}", f).expect("function");
+    }
+
+    writeln!(output, "}}").expect("");
+
+    // clear vectors
+    imports = Vec::new();
+    functions = Vec::new();
+
+    d_num
 }
