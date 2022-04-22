@@ -4,9 +4,9 @@ use wast::ModuleField;
 use wast::ModuleKind;
 use wast::ValType;
 
-use std::fs;
 use std::env;
-use std::io::{Read, Write, Error};
+use std::fs;
+use std::io::{Read, Write};
 use std::path::Path;
 
 fn main() -> Result<()> {
@@ -32,7 +32,8 @@ fn main() -> Result<()> {
         match directive {
             wast::WastDirective::Module(mut _mod) => {
                 if !imports.is_empty() {
-                    d_num = write_to_file(d_num, imports, functions, args[1]);
+                    write_to_file(d_num, &mut imports, &mut functions, &args[1]);
+                    d_num += 1;
                 }
                 if let ModuleKind::Text(txt) = &_mod.kind {
                     for field in txt {
@@ -76,7 +77,7 @@ fn main() -> Result<()> {
                         }
                     }
                     // And generate wasm module
-                    let name = format!("{}_{}.wasm", args[1], d_num);
+                    let name = format!("{}_{}.wasm", &args[1].split_once(".").unwrap().0, d_num);
                     let path: &Path = Path::new(&name);
                     fs::write(path, _mod.encode().unwrap()).unwrap();
                 }
@@ -86,7 +87,7 @@ fn main() -> Result<()> {
                 let mut line;
                 match exec {
                     wast::WastExecute::Invoke(invoke) => {
-                        line = format!("\tawsm_assert(wasmf_{}(", invoke.name);
+                        line = format!("\tassert(wasmf_{}(", invoke.name);
                         let mut ct = 0;
                         // obtain arguments
                         for p in invoke.args.iter() {
@@ -151,38 +152,40 @@ fn main() -> Result<()> {
     }
 
     if !imports.is_empty() {
-        d_num = write_to_file(d_num, imports, functions, args[1]);
+        write_to_file(d_num, &mut imports, &mut functions, &args[1]);
     }
 
     Ok(())
 }
 
-fn write_to_file(d_num: i32, imports: Vec<String>, functions: Vec<String>, file: String) -> i32 {
+fn write_to_file(
+    d_num: i32, 
+    imports: &mut Vec<String>, 
+    functions: &mut Vec<String>, 
+    file: &String
+) {
     // create new file, set output
-    let path = format!("{}_{}.c", file, d_num);
-    let mut output = fs::File::create(path);
-    d_num = d_num +1;
+    let path = format!("{}_{}.c", file.split_once(".").unwrap().0, d_num);
+    let mut output = fs::File::create(path).unwrap();
 
     // print output to file
-    writeln!(output, "#include <stdint.h>\n#include runtime.h").expect("include statement");
+    writeln!(output, "#include <stdint.h>\n#include <assert.h>").expect("include statement");
     // imports
-    for s in imports {
+    for s in imports.iter() {
         writeln!(output, "{}", s).expect("import");
     }
 
     // main function
-    writeln!(output,"\nint main(int argc, char* argv[]) {{");
+    writeln!(output,"\nint main(int argc, char* argv[]) {{").expect("main function declaration");
 
     // function calls
-    for f in functions { 
+    for f in functions.iter() { 
         writeln!(output, "{}", f).expect("function");
     }
 
     writeln!(output, "}}").expect("");
 
     // clear vectors
-    imports = Vec::new();
-    functions = Vec::new();
-
-    d_num
+    *imports = Vec::new();
+    *functions = Vec::new();
 }
