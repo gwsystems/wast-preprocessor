@@ -22,25 +22,32 @@ Write a program in Rust to automate transforming the `*.wast` declarative assert
 # File Documentation
 
 * src/main.rs
+
+
 `src/main.rs` takes the `.*wast` file as input and creates `*.c` and `*.wasm` files of the same name. The `*.c` file contains the assert declarations. The `*.wasm` file contains the functions from the WebAssembly module. These declarations will run the functions that are within the `*.wasm` file in order to test the assertions. A `*.c` and `*.wasm` file pair is made per each module within the `*.wast` file.
 
 * src/add_test.wast
+
 `src/add_test.wast` is a simple WebAssembly programming that executes addition. It is used as a sample program to test the `src/main.rs` program.
 
   
 
 * add_test_0.c
+
+
 `add_test_0.c` is the resulting `*.c` file from running `cargo run src/add_test.wast`.
 
   
 
 * add_test_0.wasm
+
+
 `add_test_0.wasm` is the resulting `*.wasm` file from running `cargo run src/add_test.wast`.
 
   
 
 # Installation Steps
-* **Installing Rust**: [doc.rust-land.org](https://doc.rust-lang.org/book/ch01-01-installation.html)
+* **Installing Rust**: [doc.rust-lang.org](https://doc.rust-lang.org/book/ch01-01-installation.html)
 
 # Running the Program
 
