@@ -14,7 +14,7 @@ Typically, WebAssembly is interpreted or just-in-time compiled. However, or aWsm
 
   
 
-Write a program in Rust to automate transforming the `*.wast` declarative assertions into a ...
+Write a program in Rust to automate transforming the `*.wast` declarative assertions into usable and readable `*.c` and `*.wasm` files
 
   
   
