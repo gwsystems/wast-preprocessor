@@ -47,7 +47,7 @@ Write a program in Rust to automate transforming the `*.wast` declarative assert
   
 
 # Installation Steps
-* **Installing Rust**: [doc.rust-land.org](https://doc.rust-lang.org/book/ch01-01-installation.html)
+* **Installing Rust**: [doc.rust-lang.org](https://doc.rust-lang.org/book/ch01-01-installation.html)
 
 # Running the Program
 
