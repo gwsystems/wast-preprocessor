@@ -887,7 +887,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wast_parse"
+name = "wast-preprocessor"
 version = "0.1.0"
 dependencies = [
  "anyhow",
