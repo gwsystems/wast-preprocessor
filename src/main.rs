@@ -45,7 +45,10 @@ fn main() -> Result<()> {
                     for field in txt {
                         if let ModuleField::Func(_func) = field {
                             let c_return_type;
-                            if _func.ty.inline.clone().unwrap().results.len() == 0 {
+
+                            if _func.ty.inline.is_none()
+                                || _func.ty.inline.clone().unwrap().results.len() == 0
+                            {
                                 c_return_type = "void";
                             } else {
                                 let return_type = _func.ty.inline.clone().unwrap().results[0];
@@ -54,37 +57,47 @@ fn main() -> Result<()> {
                                     ValType::I64 => "int64_t",
                                     ValType::F32 => "float",
                                     ValType::F64 => "double",
-                                    _ => panic!("AHHHH!"),
+                                    ValType::Ref(_) => panic!(
+                                        "wast_preprocessor does not support reference types!"
+                                    ),
+                                    _ => panic!("{:?} is an invalid type!", return_type),
                                 };
                             }
                             let mut c_param: Vec<String> = Vec::new();
-                            for (_, _, p) in _func.ty.inline.clone().unwrap().params.iter() {
-                                match p {
-                                    ValType::I32 => c_param.push("int".to_string()),
-                                    ValType::I64 => c_param.push("int64_t".to_string()),
-                                    ValType::F32 => c_param.push("float".to_string()),
-                                    ValType::F64 => c_param.push("double".to_string()),
-                                    _ => panic!("AHHHH!"),
-                                };
-                            }
-
-                            let mut line = format!(
-                                "extern {} wasmf_{}({}",
-                                c_return_type, _func.exports.names[0], c_param[0]
-                            );
-                            if c_param.len() > 1 {
-                                for n in 1..c_param.len() {
-                                    let s = format!(", {}", c_param[n]);
-                                    line.push_str(&s);
+                            if !_func.ty.inline.is_none() {
+                                for (_, _, p) in _func.ty.inline.clone().unwrap().params.iter() {
+                                    match p {
+                                        ValType::I32 => c_param.push("int".to_string()),
+                                        ValType::I64 => c_param.push("int64_t".to_string()),
+                                        ValType::F32 => c_param.push("float".to_string()),
+                                        ValType::F64 => c_param.push("double".to_string()),
+                                        _ => panic!("AHHHH!"),
+                                    };
                                 }
                             }
-                            line.push_str(");");
-                            // Push statement onto vector
-                            imports.push(line.to_string());
+
+                            if _func.exports.names.len() > 0 {
+                                let mut line = format!(
+                                    "extern {} wasmf_{}(",
+                                    c_return_type, _func.exports.names[0]
+                                );
+                                if c_param.len() > 0 {
+                                    // TODO: Cleanup string join logic
+                                    line.push_str(&c_param[0]);
+
+                                    for n in 1..c_param.len() {
+                                        let s = format!(", {}", c_param[n]);
+                                        line.push_str(&s);
+                                    }
+                                }
+                                line.push_str(");");
+                                // Push statement onto vector
+                                imports.push(line.to_string());
+                            }
                         }
                     }
                     // And generate wasm module
-                    write_wasm(&mut _mod, &args[1], dest);
+                    write_wasm(d_num, &mut _mod, &args[1], dest);
                 }
             }
 
@@ -93,6 +106,12 @@ fn main() -> Result<()> {
                 exec,
                 results,
             } => {
+                // Skip assert_returns that don't return a value
+                // TODO: Just execute these functions...
+                if results.len() == 0 {
+                    continue;
+                };
+
                 let mut line;
                 match exec {
                     wast::WastExecute::Invoke(invoke) => {
@@ -100,7 +119,7 @@ fn main() -> Result<()> {
                         let mut ct = 0;
                         // obtain arguments
                         for p in invoke.args.iter() {
-                            match p.instrs[0] {
+                            match &p.instrs[0] {
                                 wast::Instruction::I32Const(val) => {
                                     if ct > 0 {
                                         line.push_str(", ");
@@ -109,8 +128,32 @@ fn main() -> Result<()> {
                                     line.push_str(&s);
                                     ct = ct + 1;
                                 }
+                                wast::Instruction::I64Const(val) => {
+                                    if ct > 0 {
+                                        line.push_str(", ");
+                                    }
+                                    let s = format!("{:?});", val);
+                                    line.push_str(&s);
+                                    ct = ct + 1;
+                                }
+                                wast::Instruction::F32Const(val) => {
+                                    if ct > 0 {
+                                        line.push_str(", ");
+                                    }
+                                    let s = format!("{:?}", val.bits as f32);
+                                    line.push_str(&s);
+                                    ct = ct + 1;
+                                }
+                                wast::Instruction::F64Const(val) => {
+                                    if ct > 0 {
+                                        line.push_str(", ");
+                                    }
+                                    let s = format!("{:?}", val.bits as f64);
+                                    line.push_str(&s);
+                                    ct = ct + 1;
+                                }
                                 _ => {
-                                    line.push_str("OTHER PARAM");
+                                    panic!("Unknown type: {:?}", &p.instrs[0]);
                                 }
                             }
                         }
@@ -130,22 +173,36 @@ fn main() -> Result<()> {
                                     let s = format!("(float){:?});", v.bits);
                                     line.push_str(&s);
                                 }
-                                _ => {}
+                                wast::NanPattern::ArithmeticNan => {
+                                    let s = format!("(float)NAN);");
+                                    line.push_str(&s);
+                                }
+                                wast::NanPattern::CanonicalNan => {
+                                    let s = format!("(float)NAN);");
+                                    line.push_str(&s);
+                                }
                             },
                             wast::AssertExpression::F64(val) => match &val {
                                 wast::NanPattern::Value(v) => {
                                     let s = format!("(double){:?});", v.bits);
                                     line.push_str(&s);
                                 }
-                                _ => {}
+                                wast::NanPattern::ArithmeticNan => {
+                                    let s = format!("(double)NAN);");
+                                    line.push_str(&s);
+                                }
+                                wast::NanPattern::CanonicalNan => {
+                                    let s = format!("(double)NAN);");
+                                    line.push_str(&s);
+                                }
                             },
                             _ => {
-                                line.push_str("\"OTHER RESULT\");");
+                                panic!("Other Result");
                             }
                         }
                     }
                     _ => {
-                        line = format!("// OTHER EXEC");
+                        panic!("Other Exec");
                     }
                 }
                 // Push statement onto vector
@@ -186,7 +243,11 @@ fn write_to_file(
     let mut output = fs::File::create(path).unwrap();
 
     // print output to file
-    writeln!(output, "#include <stdint.h>\n#include <assert.h>").expect("include statement");
+    writeln!(
+        output,
+        "#include <stdint.h>\n#include <assert.h>\n\n#include \"runtime.h\""
+    )
+    .expect("include statement");
     // imports
     for s in imports.iter() {
         writeln!(output, "{}", s).expect("import");
@@ -194,6 +255,8 @@ fn write_to_file(
 
     // main function
     writeln!(output, "\nint main(int argc, char* argv[]) {{").expect("main function declaration");
+
+    writeln!(output, "\truntime_init();\n").expect("runtime_init");
 
     // function calls
     for f in functions.iter() {
@@ -207,16 +270,19 @@ fn write_to_file(
     *functions = Vec::new();
 }
 
-fn write_wasm(module: &mut wast::Module, file: &String, dest: &Path) {
+fn write_wasm(d_num: i32, module: &mut wast::Module, file: &String, dest: &Path) {
     // create new file, set output
     let file_name = Path::new(file).file_stem().unwrap();
     println!("file_name: {:?}", file_name);
 
     let path = format!(
-        "{}/{}.wasm",
+        "{}/{}_{}.wasm",
         dest.to_str().unwrap(),
         file_name.to_str().unwrap(),
+        d_num
     );
+
+    println!("Path: {}", path);
 
     // And generate wasm module
     let path: &Path = Path::new(&path);
